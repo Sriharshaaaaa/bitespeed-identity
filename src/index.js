@@ -1,10 +1,12 @@
 const express = require("express");
 const app = express();
-const identityRoutes = require("./routes/identity");
+const identityRoutes = require("./routes/identify");
 const db = require("./db");
 
 app.use(express.json());
-app.use("/identiy", identityRoutes);
+
+const identifyRoutes = require("./routes/identify");
+app.use("/identify", identityRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
