@@ -3,7 +3,7 @@ const app = express();
 const identityRoutes = require('./routes/identity');
 
 app.use(express.json());
-app.use('/identity', identityRoutes);
+app.use('/identiy', identityRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
