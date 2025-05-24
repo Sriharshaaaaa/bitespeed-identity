@@ -9,17 +9,23 @@ CREATE TABLE contact (
     deletedAt TIMESTAMP
 );
 
--- Function to auto-update updatedAt before update
--- CREATE OR REPLACE FUNCTION update_updatedAt_column()
+-- -- Drop trigger if exists
+-- DROP TRIGGER IF EXISTS update_contact_updatedat ON contact;
+
+-- -- Drop function if exists
+-- DROP FUNCTION IF EXISTS update_updatedat_column();
+
+-- -- Function to auto-update updatedAt before update
+-- CREATE OR REPLACE FUNCTION update_updatedat_column()
 -- RETURNS TRIGGER AS $$
 -- BEGIN 
---     NEW."updatedAt" = NOW();
+--     NEW."updatedat" = NOW();
 --     RETURN NEW;
 -- END;
 -- $$ LANGUAGE 'plpgsql';
 
--- Trigger to auto-call the update function
--- CREATE TRIGGER update_contact_updatedAt
--- BEFORE UPDATE ON contacts 
+-- -- Trigger to auto-call the update function
+-- CREATE TRIGGER update_contact_updatedat
+-- BEFORE UPDATE ON contact 
 -- FOR EACH ROW
--- EXECUTE FUNCTION update_updatedAt_column();
+-- EXECUTE FUNCTION update_updatedat_column();
