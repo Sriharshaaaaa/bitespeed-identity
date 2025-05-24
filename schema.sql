@@ -10,16 +10,16 @@ CREATE TABLE contact (
 );
 
 -- Function to auto-update updatedAt before update
-CREATE OR REPLACE FUNCTION update_updatedAt_column()
-RETURNS TRIGGER AS $$
-BEGIN 
-    NEW."updatedAt" = NOW();
-    RETURN NEW;
-END;
-$$ LANGUAGE 'plpgsql';
+-- CREATE OR REPLACE FUNCTION update_updatedAt_column()
+-- RETURNS TRIGGER AS $$
+-- BEGIN 
+--     NEW."updatedAt" = NOW();
+--     RETURN NEW;
+-- END;
+-- $$ LANGUAGE 'plpgsql';
 
 -- Trigger to auto-call the update function
-CREATE TRIGGER update_contact_updatedAt
-BEFORE UPDATE ON contacts 
-FOR EACH ROW
-EXECUTE FUNCTION update_updatedAt_column();
+-- CREATE TRIGGER update_contact_updatedAt
+-- BEFORE UPDATE ON contacts 
+-- FOR EACH ROW
+-- EXECUTE FUNCTION update_updatedAt_column();
