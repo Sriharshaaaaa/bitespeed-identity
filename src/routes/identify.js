@@ -38,7 +38,7 @@ router.post("/", async (req, res) => {
 
       if (isNewMail || isNewPhone) {
         await pool.query(
-          `INSERT INTO contacts (email,phoneNumber,linkPrecedence,linkedId) values ($1,$2,'secondary',$3)`,
+          `INSERT INTO contact (email,phoneNumber,linkPrecedence,linkedId) values ($1,$2,'secondary',$3)`,
           [email, phoneNumber, primaryContact.id]
         );
       }
