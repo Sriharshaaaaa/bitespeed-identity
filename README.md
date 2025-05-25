@@ -24,9 +24,11 @@ This takes an email and/or phone number and returns a consolidated contact clust
   "email": "foo@example.com",
   "phonenumber": "1234567890"
 }
+```
 
 ### Response body
 
+```json
 {
   "contact": {
     "primaryContactId": 1,
@@ -35,7 +37,7 @@ This takes an email and/or phone number and returns a consolidated contact clust
     "secondaryContactIds": [2, 3]
   }
 }
-
+```
 
 ### Hosted API Endpoint
 
