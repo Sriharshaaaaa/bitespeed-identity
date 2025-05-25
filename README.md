@@ -35,3 +35,8 @@ This takes an email and/or phone number and returns a consolidated contact clust
     "secondaryContactIds": [2, 3]
   }
 }
+
+
+### Hosted API Endpoint
+
+POST https://bitespeed-identity-h357.onrender.com
