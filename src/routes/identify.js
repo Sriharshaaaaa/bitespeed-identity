@@ -1,21 +1,21 @@
 const express = require("express");
 const router = express.Router();
-const { pool } = require("../db");
+const {
+  getSanitizedInputs,
+  findMatchedContacts,
+  findRelatedContacts,
+  insertNewPrimaryContact,
+  updateToSecondary,
+} = require("../utils/identifyContact");
 
 router.post("/identify", async (req, res) => {
-  // const { email, phonenumber } = req.body;
   const email = req.body.email || null;
   const phonenumber = req.body.phonenumber || null;
 
-  try {
-    console.log("Incoming data:", { email, phonenumber });
-  } catch (err) {
-    console.error("Logging failed:", err);
-  }
-
-  const sanitizedEmail = email && email.trim() !== "" ? email.trim() : null;
-  const sanitizedPhone =
-    phonenumber && phonenumber.trim() !== "" ? phonenumber.trim() : null;
+  const { sanitizedEmail, sanitizedPhone } = getSanitizedInputs(
+    email,
+    phonenumber
+  );
 
   console.log("Sanitized data:", { sanitizedEmail, sanitizedPhone });
 
@@ -27,40 +27,18 @@ router.post("/identify", async (req, res) => {
 
   try {
     // Find all contacts that match either email or phone
-    const queryParts = [];
-    const values = [];
-
-    if (sanitizedEmail) {
-      queryParts.push(`email = $${values.length + 1}`);
-      values.push(sanitizedEmail);
-    }
-
-    if (sanitizedPhone) {
-      queryParts.push(`phonenumber = $${values.length + 1}`);
-      values.push(sanitizedPhone);
-    }
-
-    let matchedContacts = [];
-    if (queryParts.length > 0) {
-      const query = `SELECT * FROM contact WHERE (${queryParts.join(
-        " OR "
-      )}) AND "deletedat" IS NULL`;
-      const { rows } = await pool.query(query, values);
-      matchedContacts = rows;
-    }
+    const matchedContacts = await findMatchedContacts(
+      sanitizedEmail,
+      sanitizedPhone
+    );
 
     // No matches? Insert a new primary contact
     if (matchedContacts.length === 0) {
-      const insertQuery = `
-        INSERT INTO contact (email, phonenumber, linkprecedence)
-        VALUES ($1, $2, 'primary') RETURNING *
-      `;
-      const { rows } = await pool.query(insertQuery, [
+      const newContact = await insertNewPrimaryContact(
         sanitizedEmail,
-        sanitizedPhone,
-      ]);
-      const newContact = rows[0];
-      console.log("New contact:", newContact);
+        sanitizedPhone
+      );
+      // console.log("New contact:", newContact);
       return res.status(200).json({
         contact: {
           primaryContactId: newContact.id,
@@ -72,31 +50,9 @@ router.post("/identify", async (req, res) => {
     }
 
     // Get all unique contact ids (primary and secondary)
-    const allLinkedIds = [
-      ...matchedContacts.map((c) => c.id),
-      ...matchedContacts.map((c) => c.linkedid).filter((id) => id !== null),
-    ];
-    const uniqueLinkedIds = [...new Set(allLinkedIds)];
-    const relatedQuery = `SELECT * FROM contact WHERE (id = ANY($1) or linkedid = ANY($1)) AND "deletedat" IS NULL`;
-    const relatedResult = await pool.query(relatedQuery, [uniqueLinkedIds]);
-    const relatedContacts = relatedResult.rows;
+    const relatedContacts = await findRelatedContacts(matchedContacts);
 
-    // matchedContacts.forEach((contact) => {
-    //   if (contact.linkprecedence === "primary") {
-    //     allLinkedIds.add(contact.id);
-    //   } else if (contact.linkedid) {
-    //     allLinkedIds.add(contact.linkedid);
-    //   }
-    // });
-
-    // // Get the earliest (smallest) primary id to treat as actual primary
-    // const allIds = matchedContacts.map((c) =>
-    //   c.linkprecedence === "primary" ? c.id : c.linkedid
-    // );
-    // const actualPrimaryId = Math.min(...allIds);
-
-    //determining primary contact
-    let primaryContact = relatedContacts
+    const primaryContact = relatedContacts
       .filter((c) => c.linkprecedence === "primary")
       .sort((a, b) => new Date(a.createdat) - new Date(b.createdat))[0];
 
@@ -106,40 +62,20 @@ router.post("/identify", async (req, res) => {
         contact.linkprecedence === "primary" &&
         contact.id !== primaryContact.id
       ) {
-        await pool.query(
-          `UPDATE contact SET linkprecedence = 'secondary', linkedid = $1 WHERE id = $2`,
-          [primaryContact.id, contact.id]
-        );
+        await updateToSecondary(primaryContact.id, contact.id);
       }
     }
 
     // Insert the current request as new secondary if it doesn’t exactly match any
-    const alreadyExists = matchedContacts.some(
-      (c) => c.email === sanitizedEmail && c.phonenumber === sanitizedPhone
+    await insertAsSecondaryIfNeeded(
+      sanitizedEmail,
+      sanitizedPhone,
+      matchedContacts,
+      primaryContact.id
     );
 
-    if (!alreadyExists) {
-      await pool.query(
-        `INSERT INTO contact (email, phonenumber, linkprecedence, linkedid)
-         VALUES ($1, $2, 'secondary', $3)`,
-        [sanitizedEmail, sanitizedPhone, primaryContact.id]
-      );
-    }
-
-    // Step 6: Gather all related contacts again to build the response
-    const finalQuery = `
-      WITH RECURSIVE related_contacts AS (
-      SELECT * FROM contact WHERE id = $1 AND "deletedat" IS NULL
-      UNION
-      SELECT c.* FROM contact c
-      INNER JOIN related_contacts rc
-      ON c."linkedid" = rc.id OR c.id = rc."linkedid"
-      WHERE c."deletedat" IS NULL
-      )
-      SELECT * FROM related_contacts;`;
-
-    const finalResult = await pool.query(finalQuery, [primaryContact.id]);
-    const finalContacts = finalResult.rows;
+    //Gather all related contacts again to build the response
+    const finalContacts = await getFinalCluster(primaryContact.id);
 
     const emails = [
       ...new Set(finalContacts.map((c) => c.email).filter(Boolean)),
